@@ -1,0 +1,11 @@
+# Виртуальная среда
+venv/
+.env/
+env/
+# Кэш Python
+__pycache__/
+*.pyc
+
+# Файлы IDE
+.vscode/
+.idea/

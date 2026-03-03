@@ -9,3 +9,6 @@ __pycache__/
 # Файлы IDE
 .vscode/
 .idea/
+aggregate_code.py
+aggregate.md
+file_structure.txt

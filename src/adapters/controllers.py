@@ -1,23 +1,22 @@
 from datetime import datetime
 from uuid import UUID
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
-
-from src.adapters.repos import SQLAlchemyPostgresEmployeeRepo
-from src.application.use_case_interfaces import AddEmployeeInputDTO, UpdateEmployeeInputDTO, DeleteEmployeeInputDTO, \
-    GetEmployeeByIdInputDTO, FireEmployeeInputDTO, GetAllEmployeeResultItemDTO, GetEmployeeByIdResultDTO, \
-    GetAllEmployeesResultDTO, FireEmployeeResultDTO
-from src.application.use_cases import AddEmployeeUseCase, UpdateEmployeeUseCase, GetEmployeeByIdUseCase, \
-    DeleteEmployeeUseCase, GetAllEmployeesUseCase, FireEmployeeUseCase
-from src.infrastructure.databases.postgres.read.engine import read_engine
-from src.infrastructure.databases.postgres.write.engine import write_engine
+from dependency_injector.wiring import inject, Provide
 from src.ui.api.fastapi.settings import fastapi_settings
-
-"""
- В данном файле находится реализация всех эндпоинтов
-"""
+from src.adapters.dependency_injector import Container
+from src.application.use_case_interfaces import (
+    AddEmployeeInputDTO, UpdateEmployeeInputDTO, DeleteEmployeeInputDTO,
+    GetEmployeeByIdInputDTO, FireEmployeeInputDTO, GetAllEmployeeResultItemDTO,
+    GetEmployeeByIdResultDTO, GetAllEmployeesResultDTO, FireEmployeeResultDTO
+)
+from src.application.use_cases import (
+    AddEmployeeUseCase, UpdateEmployeeUseCase, GetEmployeeByIdUseCase,
+    DeleteEmployeeUseCase, GetAllEmployeesUseCase, FireEmployeeUseCase
+)
 
 router = APIRouter()
+
 
 @router.get("/", tags=["Служебные"])
 def info():
@@ -32,89 +31,124 @@ def info():
     }
 
 
-@router.get("/health_check", tags=["Служебные"],summary="Проверка работоспособности приложения")
+@router.get("/health_check", tags=["Служебные"])
 def health_check():
-    """
-    Проверка работоспособности приложения
-    """
+    """Проверка работоспособности приложения"""
     return {"status": "healthy", "timestamp": datetime.now()}
 
 
-class AddEmployeeInputSchema(BaseModel,AddEmployeeInputDTO):
+# Схемы Pydantic
+class AddEmployeeInputSchema(BaseModel, AddEmployeeInputDTO):
     pass
+
+
 class AddEmployeeResultSchema(BaseModel):
-    employee_id:UUID
-@router.post("/add_employee",tags=["Сотрудники"])
-async def add_employee (employee:AddEmployeeInputSchema)->AddEmployeeResultSchema:
-    employee_repo = SQLAlchemyPostgresEmployeeRepo(write_engine)
-    use_case=AddEmployeeUseCase(employee_repo)
-    use_case_params=AddEmployeeInputDTO(**employee.model_dump())
-    result=await use_case.execute(use_case_params)
+    employee_id: UUID
+
+
+@router.post("/add_employee", tags=["Сотрудники"])
+@inject
+async def add_employee(
+    employee: AddEmployeeInputSchema,
+    use_case: AddEmployeeUseCase = Depends(Provide[Container.add_employee_use_case])
+) -> AddEmployeeResultSchema:
+    """Добавление нового сотрудника"""
+    use_case_params = AddEmployeeInputDTO(**employee.model_dump())
+    result = await use_case.execute(use_case_params)
     return AddEmployeeResultSchema.model_validate(result.__dict__)
 
 
-class UpdateEmployeeInputSchema(BaseModel,UpdateEmployeeInputDTO):
+class UpdateEmployeeInputSchema(BaseModel, UpdateEmployeeInputDTO):
     pass
+
+
 class UpdateEmployeeResultSchema(BaseModel):
-    employee_id:UUID
-@router.put("/update_employee",tags=["Сотрудники"])
-async def update_employee(upd_emp: UpdateEmployeeInputSchema):
-    repo = SQLAlchemyPostgresEmployeeRepo(write_engine)
+    employee_id: UUID
+
+
+@router.put("/update_employee", tags=["Сотрудники"])
+@inject
+async def update_employee(
+    upd_emp: UpdateEmployeeInputSchema,
+    use_case: UpdateEmployeeUseCase = Depends(Provide[Container.update_employee_use_case])
+) -> UpdateEmployeeResultSchema:
+    """Обновление данных сотрудника"""
     use_case_params = UpdateEmployeeInputDTO(**upd_emp.model_dump())
-    result = await UpdateEmployeeUseCase(repo).execute(use_case_params)
+    result = await use_case.execute(use_case_params)
     return UpdateEmployeeResultSchema.model_validate(result.__dict__)
 
 
-class DeleteEmployeeInputSchema(BaseModel,DeleteEmployeeInputDTO):
+class DeleteEmployeeInputSchema(BaseModel, DeleteEmployeeInputDTO):
     pass
-@router.put("/delete_employee",tags=["Сотрудники"])
-async def delete_employee(del_emp: DeleteEmployeeInputSchema):
-    repo = SQLAlchemyPostgresEmployeeRepo(write_engine)
+
+
+@router.put("/delete_employee", tags=["Сотрудники"])
+@inject
+async def delete_employee(
+    del_emp: DeleteEmployeeInputSchema,
+    use_case: DeleteEmployeeUseCase = Depends(Provide[Container.delete_employee_use_case])
+):
+    """Удаление сотрудника"""
     use_case_params = DeleteEmployeeInputDTO(**del_emp.model_dump())
-    await DeleteEmployeeUseCase(repo).execute(use_case_params)
-    return
+    await use_case.execute(use_case_params)
+    return {"message": "Сотрудник успешно удален"}
 
 
-class GetEmployeeByIdResultSchema(BaseModel,GetEmployeeByIdResultDTO):
+class GetEmployeeByIdResultSchema(BaseModel, GetEmployeeByIdResultDTO):
     pass
+
+
 @router.get("/get_employee/{employee_id}", tags=["Сотрудники"])
-async def get_employee(employee_id: UUID):
-    repo = SQLAlchemyPostgresEmployeeRepo(read_engine)
+@inject
+async def get_employee(
+    employee_id: UUID,
+    use_case: GetEmployeeByIdUseCase = Depends(Provide[Container.get_employee_by_id_use_case])
+) -> GetEmployeeByIdResultSchema:
+    """Получение сотрудника по ID"""
     use_case_params = GetEmployeeByIdInputDTO(employee_id=employee_id)
-    result = await GetEmployeeByIdUseCase(repo).execute(use_case_params)
+    result = await use_case.execute(use_case_params)
     return GetEmployeeByIdResultSchema.model_validate(result.__dict__)
 
 
-class GetAllEmployeesResultItemSchema(BaseModel,GetAllEmployeeResultItemDTO):
+class GetAllEmployeesResultItemSchema(BaseModel, GetAllEmployeeResultItemDTO):
     pass
 
-class GetAllEmployeesResultSchema(BaseModel,GetAllEmployeesResultDTO):
+
+class GetAllEmployeesResultSchema(BaseModel, GetAllEmployeesResultDTO):
     pass
+
 
 @router.get("/get_all_employees", tags=["Сотрудники"])
-async def get_all_employees():
-    repo = SQLAlchemyPostgresEmployeeRepo(read_engine)
-    result = await GetAllEmployeesUseCase(repo).execute()
+@inject
+async def get_all_employees(
+    use_case: GetAllEmployeesUseCase = Depends(Provide[Container.get_all_employees_use_case])
+) -> GetAllEmployeesResultSchema:
+    """Получение всех сотрудников"""
+    result = await use_case.execute()
     employees_schema = [
         GetAllEmployeesResultItemSchema.model_validate(emp.__dict__)
         for emp in result.employees
     ]
-    get_all_employees_result={"employees": employees_schema}
-    return  GetAllEmployeesResultSchema.model_validate(get_all_employees_result)
+    return GetAllEmployeesResultSchema(employees=employees_schema)
 
 
-class FireEmployeeInputSchema(BaseModel,FireEmployeeInputDTO):
+class FireEmployeeInputSchema(BaseModel, FireEmployeeInputDTO):
     pass
 
-class FireEmployeeResultSchema(BaseModel,FireEmployeeResultDTO):
+
+class FireEmployeeResultSchema(BaseModel, FireEmployeeResultDTO):
     pass
 
 @router.put("/fire_employee", tags=["Сотрудники"])
-async def fire_employee(fire_emp: FireEmployeeInputSchema):
-    repo = SQLAlchemyPostgresEmployeeRepo(write_engine)
+@inject
+async def fire_employee(
+    fire_emp: FireEmployeeInputSchema,
+    use_case: FireEmployeeUseCase = Depends(Provide[Container.fire_employee_use_case])
+) -> FireEmployeeResultSchema:
+    """Увольнение сотрудника"""
     use_case_params = FireEmployeeInputDTO(
         employee_id=fire_emp.employee_id,
         fired_dt=fire_emp.fired_dt
     )
-    result = await FireEmployeeUseCase(repo).execute(use_case_params)
+    result = await use_case.execute(use_case_params)
     return FireEmployeeResultSchema.model_validate(result.__dict__)

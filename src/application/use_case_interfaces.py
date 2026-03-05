@@ -3,6 +3,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+# Импортируем ошибки (добавлено)
+from src.application.errors import (
+    EmployeeNotFoundError,
+    EmployeeAlreadyFiredError,
+    EmployeeAlreadyExistsError,
+    InvalidEmployeeDataError
+)
+
 """
 В данном файле выставляются все интерфейсы пользовательских сценариев
 С данного файла начинает проектироваться все логика приложения
@@ -28,6 +36,13 @@ class AddEmployeeResultDTO:
 class AddEmployeeUseCaseInterface(ABC):
     @abstractmethod
     async def execute(self, employee: AddEmployeeInputDTO) -> AddEmployeeResultDTO:
+        """
+        Добавляет нового сотрудника
+        Возможные ошибки:
+        - InvalidEmployeeDataError: некорректные данные
+        - EmployeeAlreadyExistsError: сотрудник с таким ID уже существует
+        - DatabaseOperationError: ошибка БД
+        """
         ...
 
 #------------------ UpdateEmployee
@@ -45,6 +60,13 @@ class UpdateEmployeeResultDTO:
 class UpdateEmployeeUseCaseInterface(ABC):
     @abstractmethod
     async def execute(self, params: UpdateEmployeeInputDTO) -> UpdateEmployeeResultDTO:
+        """
+        Обновляет данные сотрудника
+        Возможные ошибки:
+        - EmployeeNotFoundError: сотрудник не найден
+        - InvalidEmployeeDataError: некорректные данные
+        - DatabaseOperationError: ошибка БД
+        """
         ...
 
 #------------------ DeleteEmployee
@@ -52,11 +74,15 @@ class UpdateEmployeeUseCaseInterface(ABC):
 class DeleteEmployeeInputDTO:
     employee_id: UUID
 
-
-
 class DeleteEmployeeUseCaseInterface(ABC):
     @abstractmethod
     async def execute(self, params: DeleteEmployeeInputDTO) -> None:
+        """
+        Удаляет сотрудника
+        Возможные ошибки:
+        - EmployeeNotFoundError: сотрудник не найден
+        - DatabaseOperationError: ошибка БД
+        """
         ...
 
 #----------------- GetEmployeeById
@@ -76,6 +102,12 @@ class GetEmployeeByIdResultDTO:
 class GetEmployeeByIdUseCaseInterface(ABC):
     @abstractmethod
     async def execute(self, params: GetEmployeeByIdInputDTO) -> GetEmployeeByIdResultDTO:
+        """
+        Получает сотрудника по ID
+        Возможные ошибки:
+        - EmployeeNotFoundError: сотрудник не найден
+        - DatabaseOperationError: ошибка БД
+        """
         ...
 
 #----------------- GetAllEmployees
@@ -94,6 +126,11 @@ class GetAllEmployeesResultDTO:
 class GetAllEmployeesUseCaseInterface(ABC):
     @abstractmethod
     async def execute(self) -> GetAllEmployeesResultDTO:
+        """
+        Получает всех сотрудников
+        Возможные ошибки:
+        - DatabaseOperationError: ошибка БД
+        """
         ...
 
 # ------------------- FireEmployee
@@ -114,5 +151,9 @@ class FireEmployeeUseCaseInterface(ABC):
     async def execute(self, params: FireEmployeeInputDTO) -> FireEmployeeResultDTO:
         """
         Увольняет сотрудника (устанавливает fired=True и fired_dt)
+        Возможные ошибки:
+        - EmployeeNotFoundError: сотрудник не найден
+        - EmployeeAlreadyFiredError: сотрудник уже уволен
+        - DatabaseOperationError: ошибка БД
         """
         ...
